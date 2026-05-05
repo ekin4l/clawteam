@@ -131,11 +131,13 @@ for wi_name in work_item_names:
     display_name = wi.get('display_name', wi_name)
     manual_trigger = wi.get('triggers', {}).get('manual', '')
     prompt = f'执行定时任务：{display_name}。触发命令：{manual_trigger or wi_name}'
+    cron_name = f'clawteam-${ROLE_KEY}-{wi_name}'
 
     # Create cron job via openclaw CLI
     try:
         result = subprocess.run(
             ['openclaw', 'cron', 'add',
+             '--name', cron_name,
              '--cron', schedule,
              '--prompt', prompt,
              '--agent', '${ROLE_KEY}'],
