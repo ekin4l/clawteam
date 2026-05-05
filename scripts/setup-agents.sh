@@ -41,9 +41,8 @@ print(data['openclaw']['agents_dir'])
 BACKUP_DIR="$PROJECT_DIR/.backups/setup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 for RK in $AGENTS; do
-    # 备份 workspace 文件
+    # 备份 workspace 文件（仅 workspace/ 子目录，不碰 sessions/ 和 agent/）
     WS="$AGENTS_DIR/$RK/workspace"
-    [ ! -d "$WS" ] && WS="$AGENTS_DIR/$RK"
     if [ -d "$WS" ]; then
         echo "备份 $RK workspace → $BACKUP_DIR/$RK/workspace"
         mkdir -p "$BACKUP_DIR/$RK"

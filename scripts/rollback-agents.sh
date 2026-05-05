@@ -73,8 +73,25 @@ for ROLE_KEY in $TARGETS; do
         rm -rf "$AGENT_WORKSPACE"
         cp -r "$BACKUP_WORKSPACE" "$AGENT_WORKSPACE"
     else
-        echo "删除工作区: $AGENT_WORKSPACE"
-        rm -rf "$AGENT_WORKSPACE"
+        # 首次 setup 时没有备份 → 说明 setup 前不存在 workspace
+        # 如果 agent 是由 setup 创建的，需要连同 agent 一起删除
+        if [ -d "$AGENTS_DIR/$ROLE_KEY" ]; then
+            echo "首次 setup 的 agent，无备份可恢复，删除 agent: $ROLE_KEY"
+            # 保留 sessions 目录（会话历史）
+            if [ -d "$AGENTS_DIR/$ROLE_KEY/sessions" ]; then
+                SESSIONS_TMP=$(mktemp -d)
+                cp -r "$AGENTS_DIR/$ROLE_KEY/sessions" "$SESSIONS_TMP/sessions"
+                rm -rf "$AGENTS_DIR/$ROLE_KEY"
+                mkdir -p "$AGENTS_DIR/$ROLE_KEY"
+                cp -r "$SESSIONS_TMP/sessions" "$AGENTS_DIR/$ROLE_KEY/sessions"
+                rm -rf "$SESSIONS_TMP"
+                echo "已保留 $ROLE_KEY 的会话历史"
+            else
+                rm -rf "$AGENTS_DIR/$ROLE_KEY"
+            fi
+        else
+            echo "Agent $ROLE_KEY 不存在，跳过"
+        fi
     fi
 
     # 2. 恢复 agent 认证文件（如果有备份）
@@ -86,10 +103,10 @@ for ROLE_KEY in $TARGETS; do
         cp -r "$BACKUP_AUTH_DIR" "$AGENT_AUTH_DIR"
     fi
 
-    # 3. 删除该 agent 的 cron 任务（仅删除由 setup-agents.sh 创建的）
+    # 3. 删除该 agent 的 cron 任务（仅删除包含 clawteam 标记的）
     if command -v openclaw &>/dev/null; then
-        echo "清理 $ROLE_KEY 的 cron 任务..."
-        openclaw cron list 2>/dev/null | grep "$ROLE_KEY" | awk '{print $1}' | while read -r cron_id; do
+        echo "清理 $ROLE_KEY 由 setup 创建的 cron 任务..."
+        openclaw cron list 2>/dev/null | grep "$ROLE_KEY" | grep -i "定时任务\|clawteam" | awk '{print $1}' | while read -r cron_id; do
             echo "删除 cron: $cron_id"
             openclaw cron delete "$cron_id" 2>/dev/null || true
         done
