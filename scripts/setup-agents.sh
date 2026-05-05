@@ -59,6 +59,56 @@ else:
 
     python3 scripts/render-workspace.py --agent "$ROLE_KEY" --output "$AGENTS_DIR"
     echo "Agent $ROLE_KEY configured."
+
+    # --- Setup scheduled cron tasks for this agent ---
+    echo "Setting up scheduled tasks for $ROLE_KEY..."
+    python3 -c "
+import yaml, glob, subprocess, sys
+
+# Find agent file
+files = glob.glob('agents/${ROLE_KEY}_*.yaml')
+if not files:
+    sys.exit(0)
+agent = yaml.safe_load(open(files[0]))
+
+# Load assignments
+asgn = yaml.safe_load(open('assignments.yaml'))
+work_item_names = asgn.get('defaults', {}).get('${ROLE_KEY}', [])
+
+# For each assigned work item, check for scheduled triggers
+for wi_name in work_item_names:
+    wi_path = f'work_items/{wi_name}.yaml'
+    try:
+        wi = yaml.safe_load(open(wi_path))
+    except FileNotFoundError:
+        continue
+
+    schedule = wi.get('triggers', {}).get('scheduled')
+    if not schedule:
+        continue
+
+    # Build the cron prompt that tells the agent what to do
+    display_name = wi.get('display_name', wi_name)
+    manual_trigger = wi.get('triggers', {}).get('manual', '')
+    prompt = f'执行定时任务：{display_name}。触发命令：{manual_trigger or wi_name}'
+
+    # Create cron job via openclaw CLI
+    try:
+        result = subprocess.run(
+            ['openclaw', 'cron', 'add',
+             '--cron', schedule,
+             '--prompt', prompt,
+             '--agent', '${ROLE_KEY}'],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            print(f'  Created cron: {display_name} ({schedule}) for ${ROLE_KEY}')
+        else:
+            print(f'  Warning: could not create cron for {display_name}: {result.stderr.strip()}')
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        print(f'  Warning: openclaw cron not available, skipping {display_name}')
+" 2>/dev/null || echo "  Warning: scheduled task setup failed for $ROLE_KEY"
+
 done
 
 echo "=== Done ==="
