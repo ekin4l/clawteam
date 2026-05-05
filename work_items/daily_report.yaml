@@ -6,6 +6,7 @@ approval_level: low
 tools:
   - feishu/messaging
   - feishu/group_management
+  - feishu/drive
 triggers:
   scheduled: "0 18 * * 1-5"
   manual: "@Nora 日报"
@@ -14,3 +15,47 @@ inputs:
   - 遇到的问题和风险
 outputs:
   - 格式化的团队日报消息
+  - 飞书网盘中的日报归档文件
+
+workflow:
+  step_1_collect:
+    description: "逐一私聊每位需要写日报的同学，收集工作进展"
+    action: "遍历 team/ 中 daily_report=true 的成员，通过飞书私聊发起日报收集"
+    rules:
+      - "与每位同学单独私聊，不在群里收集"
+      - "询问当日完成的工作、遇到的问题、明日计划"
+
+  step_2_followup:
+    description: "对日报内容不明确的进行追问"
+    action: "分析收集到的日报内容，识别需要追问的点"
+    rules:
+      - "工作是否完成不明确时，追问完成状态（已完成/进行中/未开始）"
+      - "提及文档相关工作时，追问并要求提供文档地址"
+      - "提及代码相关工作时，追问并要求提供代码仓库地址（精确到分支或MR链接）"
+      - "提及问题或风险时，追问当前处理状态和是否需要协助"
+
+  step_3_save_raw:
+    description: "保存原始聊天记录"
+    action: "将每位同学的私聊记录原样保存"
+    rules:
+      - "保存完整的问答对话记录"
+      - "记录保存在飞书网盘对应人员子目录下的 chat_records/ 文件夹中"
+
+  step_4_archive:
+    description: "整理并保存日报到飞书网盘"
+    action: "将整理后的日报按规范格式保存"
+    rules:
+      - "保存到飞书网盘统一的日报目录"
+      - "以人名建立子目录，如：日报/杨小华/"
+      - "每天一个 markdown 文件，文件名格式：{人名}-{YYYY-MM-DD}.md"
+      - "日报内容包含：今日完成、遇到的问题、明日计划、相关链接（文档/代码）"
+
+  step_5_morning_check:
+    description: "次日早上检查日报完成情况"
+    trigger: "次日 09:00"
+    action: "检查昨日日报文件，对未完成的进行跟进"
+    rules:
+      - "检查每位同学的日报文件内容是否完整"
+      - "如果日报未形成或内容不完整，查看原始聊天记录"
+      - "根据聊天记录中的日报描述情况，进一步与同学沟通、提醒完成日报"
+      - "跟进直到每位同学的日报都完整保存"
