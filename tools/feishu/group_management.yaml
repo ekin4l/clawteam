@@ -1,0 +1,10 @@
+name: feishu_group_management
+display_name: "飞书群组管理"
+category: feishu
+description: "飞书群组的创建、成员邀请和群名设置操作"
+approval_level: low
+operations:
+  - create_group
+  - invite_member
+  - set_group_name
+api_config: {}

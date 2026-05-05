@@ -1,0 +1,16 @@
+name: group_facilitation
+display_name: "群组协调"
+description: "管理飞书群组，组织讨论，协调团队成员之间的沟通"
+category: communication
+approval_level: low
+tools:
+  - feishu/messaging
+  - feishu/group_management
+triggers:
+  manual: "@Nora 组织讨论"
+inputs:
+  - 讨论主题
+  - 参与人员
+outputs:
+  - 飞书群组创建或更新
+  - 讨论总结

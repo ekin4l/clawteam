@@ -1,0 +1,16 @@
+name: test_automation
+display_name: "测试自动化"
+description: "编写自动化测试代码，包括单元测试、集成测试，提交到代码仓库"
+category: testing
+approval_level: low
+tools:
+  - git/commit
+  - git/branch
+triggers:
+  manual: "@Alice 自动化测试"
+inputs:
+  - 测试用例
+  - 被测代码
+outputs:
+  - 自动化测试代码
+  - 测试代码提交

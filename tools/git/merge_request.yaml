@@ -1,0 +1,10 @@
+name: git_merge_request
+display_name: "Git 合并请求"
+category: git
+description: "Git合并请求的创建、审核和合并操作"
+approval_level: medium
+operations:
+  - create
+  - review
+  - merge
+api_config: {}

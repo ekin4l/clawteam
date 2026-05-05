@@ -1,0 +1,15 @@
+name: test_case_generation
+display_name: "测试用例生成"
+description: "根据需求文档和架构设计生成测试用例，覆盖正常流程和边界条件"
+category: testing
+approval_level: low
+tools: []
+triggers:
+  manual: "@Alice 生成测试用例"
+inputs:
+  - 需求文档
+  - 架构设计文档
+  - 接口定义
+outputs:
+  - 测试用例文档
+  - 测试场景清单

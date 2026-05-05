@@ -1,0 +1,17 @@
+name: task_registration
+display_name: "任务登记"
+description: "将需求或讨论结果转化为CodeArts任务，分配负责人和优先级"
+category: communication
+approval_level: medium
+tools:
+  - codearts/issue_crud
+  - codearts/repo_operations
+triggers:
+  manual: "@Nora 创建任务"
+inputs:
+  - 任务描述
+  - 优先级
+  - 负责人
+outputs:
+  - CodeArts任务
+  - 任务分配通知

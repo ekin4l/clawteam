@@ -1,0 +1,17 @@
+name: review_report
+display_name: "审核报告"
+description: "生成结构化的代码审核报告，创建CodeArts问题并通知相关人员"
+category: quality
+approval_level: medium
+tools:
+  - codearts/issue_crud
+  - feishu/messaging
+triggers:
+  manual: "@Ken 审核报告"
+inputs:
+  - 审核意见汇总
+  - 问题清单
+outputs:
+  - 结构化审核报告
+  - CodeArts问题项
+  - 飞书通知

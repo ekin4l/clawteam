@@ -1,0 +1,15 @@
+name: deploy_review
+display_name: "部署审核"
+description: "审核部署计划，检查部署配置、依赖项和环境一致性"
+category: ops
+approval_level: medium
+tools: []
+triggers:
+  manual: "@Emily 部署审核"
+inputs:
+  - 部署计划
+  - 变更列表
+  - 环境配置
+outputs:
+  - 部署审核报告
+  - 审核通过或拒绝结论

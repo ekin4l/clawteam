@@ -1,0 +1,16 @@
+name: daily_report
+display_name: "团队日报"
+description: "收集团队成员每日工作进展，整理并发布团队日报到飞书群"
+category: communication
+approval_level: low
+tools:
+  - feishu/messaging
+  - feishu/group_management
+triggers:
+  scheduled: "0 18 * * 1-5"
+  manual: "@Nora 日报"
+inputs:
+  - 团队成员工作进展
+  - 遇到的问题和风险
+outputs:
+  - 格式化的团队日报消息

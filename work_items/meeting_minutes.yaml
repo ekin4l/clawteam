@@ -1,0 +1,16 @@
+name: meeting_minutes
+display_name: "会议纪要"
+description: "记录和整理会议内容，生成结构化会议纪要并发送到相关飞书群"
+category: communication
+approval_level: low
+tools:
+  - feishu/messaging
+  - feishu/group_management
+triggers:
+  manual: "@Nora 会议纪要"
+inputs:
+  - 会议录音或文字记录
+  - 参会人员列表
+outputs:
+  - 结构化会议纪要文档
+  - 待办事项清单

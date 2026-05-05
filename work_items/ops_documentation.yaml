@@ -1,0 +1,15 @@
+name: ops_documentation
+display_name: "运维文档"
+description: "编写和维护运维文档，包括部署手册、故障处理指南和运维操作规范"
+category: ops
+approval_level: low
+tools: []
+triggers:
+  manual: "@Emily 更新运维文档"
+inputs:
+  - 系统配置变更
+  - 部署记录
+  - 故障处理记录
+outputs:
+  - 运维文档更新
+  - 操作规范文档

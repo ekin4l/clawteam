@@ -1,0 +1,17 @@
+name: progress_tracking
+display_name: "进度跟踪"
+description: "跟踪任务进度，识别延期风险，通过飞书发送预警通知"
+category: communication
+approval_level: low
+tools:
+  - codearts/issue_crud
+  - feishu/messaging
+triggers:
+  scheduled: "0 9 * * 1-5"
+  manual: "@Nora 进度检查"
+inputs:
+  - CodeArts任务状态
+  - 里程碑截止日期
+outputs:
+  - 进度报告
+  - 风险预警通知

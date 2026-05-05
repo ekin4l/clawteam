@@ -1,0 +1,15 @@
+name: code_review
+display_name: "代码审核"
+description: "审核代码变更，检查代码质量、安全性和设计符合性"
+category: quality
+approval_level: medium
+tools:
+  - git/merge_request
+triggers:
+  manual: "@Ken 代码审核"
+inputs:
+  - Merge Request
+  - 代码变更内容
+outputs:
+  - 审核意见
+  - 修改建议

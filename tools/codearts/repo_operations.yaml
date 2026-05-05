@@ -1,0 +1,10 @@
+name: codearts_repo_operations
+display_name: "CodeArts 仓库操作"
+category: codearts
+description: "CodeArts代码仓库的分支创建、代码推送和合并操作"
+approval_level: medium
+operations:
+  - create_branch
+  - push
+  - merge
+api_config: {}

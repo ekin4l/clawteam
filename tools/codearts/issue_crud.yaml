@@ -1,0 +1,13 @@
+name: codearts_issue_crud
+display_name: "CodeArts 任务管理"
+category: codearts
+description: "CodeArts项目的任务创建、更新、查询、评论、关闭和分配操作"
+approval_level: medium
+operations:
+  - create
+  - update
+  - query
+  - comment
+  - close
+  - assign
+api_config: {}

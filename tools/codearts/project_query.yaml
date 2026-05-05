@@ -1,0 +1,9 @@
+name: codearts_project_query
+display_name: "CodeArts 项目查询"
+category: codearts
+description: "CodeArts项目的列表查询和详情获取"
+approval_level: low
+operations:
+  - list_projects
+  - get_project
+api_config: {}

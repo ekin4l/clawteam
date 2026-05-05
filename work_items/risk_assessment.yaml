@@ -1,0 +1,16 @@
+name: risk_assessment
+display_name: "风险评估"
+description: "评估部署和变更的风险，制定回滚方案和应急措施"
+category: ops
+approval_level: medium
+tools: []
+triggers:
+  manual: "@Emily 风险评估"
+inputs:
+  - 变更内容
+  - 影响范围
+  - 历史部署数据
+outputs:
+  - 风险评估报告
+  - 回滚方案
+  - 应急预案

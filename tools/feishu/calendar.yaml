@@ -1,0 +1,9 @@
+name: feishu_calendar
+display_name: "飞书日历"
+category: feishu
+description: "飞书日历事件的创建和查询操作"
+approval_level: low
+operations:
+  - create_event
+  - query_events
+api_config: {}

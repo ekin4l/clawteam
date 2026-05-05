@@ -1,0 +1,16 @@
+name: architecture_design
+display_name: "架构设计"
+description: "进行系统架构设计，输出技术方案文档，评估技术风险"
+category: development
+approval_level: medium
+tools: []
+triggers:
+  manual: "@Mark 架构设计"
+inputs:
+  - 需求文档
+  - 现有系统架构
+  - 技术约束
+outputs:
+  - 架构设计文档
+  - 技术风险评估
+  - 接口设计

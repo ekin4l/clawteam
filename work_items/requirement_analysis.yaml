@@ -1,0 +1,16 @@
+name: requirement_analysis
+display_name: "需求分析"
+description: "分析和拆解用户需求，生成结构化需求文档，创建对应的CodeArts任务"
+category: communication
+approval_level: low
+tools:
+  - feishu/messaging
+  - codearts/issue_crud
+triggers:
+  manual: "@Nora 需求分析"
+inputs:
+  - 原始需求描述
+  - 相关背景资料
+outputs:
+  - 结构化需求文档
+  - CodeArts任务项

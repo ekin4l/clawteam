@@ -1,0 +1,15 @@
+name: test_execution
+display_name: "测试执行"
+description: "执行测试用例，收集测试结果，分析测试覆盖率"
+category: testing
+approval_level: low
+tools: []
+triggers:
+  manual: "@Alice 执行测试"
+inputs:
+  - 测试用例
+  - 测试环境配置
+outputs:
+  - 测试执行报告
+  - 缺陷清单
+  - 覆盖率报告

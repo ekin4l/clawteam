@@ -1,0 +1,16 @@
+name: doc_management
+display_name: "文档管理"
+description: "整理和维护项目文档，确保文档的完整性和可访问性"
+category: communication
+approval_level: low
+tools:
+  - feishu/messaging
+triggers:
+  manual: "@Nora 更新文档"
+inputs:
+  - 技术文档
+  - 设计文档
+  - 用户手册
+outputs:
+  - 整理后的文档
+  - 文档变更通知

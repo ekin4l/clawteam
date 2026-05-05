@@ -1,0 +1,17 @@
+name: deploy_execution
+display_name: "部署执行"
+description: "执行生产环境部署，监控部署过程，处理部署异常"
+category: ops
+approval_level: high
+tools:
+  - codearts/repo_operations
+triggers:
+  manual: "@Emily 执行部署"
+inputs:
+  - 审核通过的部署计划
+  - 部署包
+  - 环境配置
+outputs:
+  - 部署执行记录
+  - 部署状态报告
+  - 异常处理记录

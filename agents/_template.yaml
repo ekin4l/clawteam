@@ -1,0 +1,14 @@
+# Template for new agent roles
+role_key: ""                    # REQUIRED: unique identifier (e.g., "assistant")
+display_name: ""                # REQUIRED: human-readable name
+role_title: ""                  # Role title in communications
+creature: "AI assistant"        # Identity type
+emoji: ""                       # Signature emoji
+vibe: ""                        # Communication style
+avatar: ""                      # Avatar file path
+model: "zai/glm-4.7"           # LLM model
+communicates_externally: false  # Whether agent talks directly to humans
+personality: ""                 # REQUIRED: personality description
+assigned_work_items: []         # Work items this agent handles
+heartbeat_tasks: []             # Periodic tasks
+capabilities: {}                # What this agent can do

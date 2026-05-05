@@ -1,0 +1,17 @@
+name: defect_reporting
+display_name: "缺陷报告"
+description: "记录测试中发现的缺陷，创建CodeArts问题并通过飞书通知开发人员"
+category: testing
+approval_level: medium
+tools:
+  - codearts/issue_crud
+  - feishu/messaging
+triggers:
+  manual: "@Alice 报告缺陷"
+inputs:
+  - 缺陷描述
+  - 复现步骤
+  - 严重程度
+outputs:
+  - CodeArts缺陷问题
+  - 飞书通知

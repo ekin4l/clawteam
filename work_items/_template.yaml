@@ -1,0 +1,9 @@
+name: ""                    # REQUIRED
+display_name: ""
+description: ""
+category: ""                # communication | development | quality | ops | testing
+approval_level: ""          # low | medium | high
+tools: []
+triggers: {}
+inputs: []
+outputs: []

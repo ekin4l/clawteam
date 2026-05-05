@@ -1,0 +1,9 @@
+name: feishu_messaging
+display_name: "飞书消息"
+category: feishu
+description: "飞书消息发送和回复操作"
+approval_level: low
+operations:
+  - send_message
+  - reply_message
+api_config: {}

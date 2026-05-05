@@ -1,0 +1,37 @@
+defaults:
+  assistant:
+    - daily_report
+    - meeting_minutes
+    - requirement_analysis
+    - task_registration
+    - progress_tracking
+    - doc_management
+    - group_facilitation
+  architect:
+    - requirement_analysis
+    - architecture_design
+  quality:
+    - code_review
+    - review_report
+  tester:
+    - test_case_generation
+    - test_automation
+    - test_execution
+    - defect_reporting
+  ops:
+    - deploy_review
+    - risk_assessment
+    - ops_documentation
+    - deploy_execution
+
+collaboration:
+  - trigger: code_review
+    action: group_facilitation
+    agents: [quality, assistant]
+  - trigger: architecture_design
+    action: test_case_generation
+    agents: [architect, tester]
+  - trigger: deploy_execution
+    action: risk_assessment
+    agents: [ops]
+    requires_approval: true
