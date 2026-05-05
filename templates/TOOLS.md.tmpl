@@ -1,0 +1,16 @@
+# TOOLS.md - Local Notes
+
+## Available Tools
+
+{% for wi in work_items %}
+{% if wi.tools is defined %}
+### {{ wi.display_name }}
+{% for tool_ref in wi.tools %}
+- {{ tool_ref }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+---
+
+Add whatever helps you do your job. Your notes below this line are preserved during updates.

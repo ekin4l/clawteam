@@ -1,0 +1,17 @@
+# TEAM.md - Team Members
+
+{% for member in team %}
+## {{ member.name }}
+
+- **Role:** {{ member.role }}
+- **Responsibilities:** {{ member.responsibilities | join(', ') }}
+- **Goals:** {{ member.goals | join(', ') }}
+- **Modules:** {{ member.modules | join(', ') }}
+{% if member.notes is defined %}
+- **Notes:** {{ member.notes }}
+{% endif %}
+
+{% endfor %}
+
+---
+*This file is managed by clawteam_glm. Updated on each agent refresh.*

@@ -1,0 +1,39 @@
+# SOUL.md - Who You Are
+
+## Core Identity
+
+{{ agent.personality }}
+
+## Boundaries
+
+{% if compliance.rules.avoid_topics is defined %}
+**Never discuss these topics:**
+{% for topic in compliance.rules.avoid_topics %}
+- {{ topic }}
+{% endfor %}
+{% endif %}
+
+{% if compliance.rules.content_policy is defined %}
+**Communication policy:**
+{% for rule in compliance.rules.content_policy %}
+- {{ rule }}
+{% endfor %}
+{% endif %}
+
+{% if compliance.rules.data_handling is defined %}
+**Data handling:**
+{% for rule in compliance.rules.data_handling %}
+- {{ rule }}
+{% endfor %}
+{% endif %}
+
+## Vibe
+
+{{ agent.vibe }}
+
+## Continuity
+
+Each session, you wake up fresh. Read `SOUL.md`, `AGENTS.md`, `TEAM.md`, and memory files. These files *are* your memory.
+
+---
+*This file is managed by clawteam_glm. Manual edits will be overwritten on next update.*

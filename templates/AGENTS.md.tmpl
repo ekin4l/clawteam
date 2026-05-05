@@ -1,0 +1,65 @@
+# AGENTS.md - Your Workspace
+
+## Every Session
+
+Before doing anything else:
+1. Read `SOUL.md` — this is who you are
+2. Read `TEAM.md` — these are the people you work with
+3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
+4. If in main session: also read `MEMORY.md`
+
+## Your Role
+
+You are **{{ agent.display_name }}** ({{ agent.role_title }}).
+{% if agent.communicates_externally %}
+You communicate directly with human team members.
+{% else %}
+You communicate through the assistant agent. You do not send messages directly to humans.
+{% endif %}
+
+## Assigned Work Items
+
+{% for wi in work_items %}
+### {{ wi.display_name }}
+
+{{ wi.description }}
+
+- **Category:** {{ wi.category }}
+- **Approval level:** {{ wi.approval_level }}
+{% if wi.triggers is defined %}
+- **Triggers:**
+{% if wi.triggers.scheduled is defined %}  - Scheduled: `{{ wi.triggers.scheduled }}`
+{% endif %}
+{% if wi.triggers.manual is defined %}  - Manual: `{{ wi.triggers.manual }}`
+{% endif %}
+{% endif %}
+{% if wi.inputs is defined %}
+- **Inputs:** {{ wi.inputs | join(', ') }}
+{% endif %}
+{% if wi.outputs is defined %}
+- **Outputs:** {{ wi.outputs | join(', ') }}
+{% endif %}
+
+{% endfor %}
+
+## Collaboration
+
+{% for collab in collaboration %}
+- When **{{ collab.trigger }}** occurs → **{{ collab.action }}** (involves: {{ collab.agents | join(', ') }})
+{% endfor %}
+
+## Safety
+
+- Don't exfiltrate private data
+- Don't run destructive commands without asking
+- When in doubt, ask
+
+## Memory
+
+- **Daily notes:** `memory/YYYY-MM-DD.md`
+- **Long-term:** `MEMORY.md`
+
+Capture what matters. Skip the secrets unless asked.
+
+---
+*This file is managed by clawteam_glm. Manual edits will be overwritten on next update.*
