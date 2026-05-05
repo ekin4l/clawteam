@@ -132,6 +132,20 @@ agent = yaml.safe_load(open(files[0]))
 asgn = yaml.safe_load(open('assignments.yaml'))
 work_item_names = asgn.get('defaults', {}).get('${ROLE_KEY}', [])
 
+# Get existing cron jobs to avoid duplicates
+existing_cron_names = set()
+try:
+    cron_list = subprocess.run(
+        ['openclaw', 'cron', 'list'], capture_output=True, text=True, timeout=10,
+    )
+    if cron_list.returncode == 0:
+        for line in cron_list.stdout.splitlines():
+            if 'clawteam-' in line:
+                # extract cron name from the line
+                existing_cron_names.add(line.strip())
+except (FileNotFoundError, subprocess.TimeoutExpired):
+    pass
+
 # For each assigned work item, check for scheduled triggers
 for wi_name in work_item_names:
     wi_path = f'work_items/{wi_name}.yaml'
@@ -144,13 +158,16 @@ for wi_name in work_item_names:
     if not schedule:
         continue
 
-    # Build the cron prompt that tells the agent what to do
     display_name = wi.get('display_name', wi_name)
     manual_trigger = wi.get('triggers', {}).get('manual', '')
     prompt = f'执行定时任务：{display_name}。触发命令：{manual_trigger or wi_name}'
     cron_name = f'clawteam-${ROLE_KEY}-{wi_name}'
 
-    # Create cron job via openclaw CLI
+    # Skip if already exists
+    if any(cron_name in c for c in existing_cron_names):
+        print(f'  Cron already exists: {display_name}, skipping')
+        continue
+
     try:
         result = subprocess.run(
             ['openclaw', 'cron', 'add',
