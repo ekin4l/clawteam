@@ -73,17 +73,21 @@ else:
 " 2>/dev/null || echo "no")
 
     if [ "$HAS_WRITE" = "yes" ]; then
-        # 文件已正确，但 gateway 可能还是旧状态，做实际连通测试
-        CRON_TEST=$(openclaw cron list 2>&1 || true)
-        if echo "$CRON_TEST" | grep -qi "scope upgrade\|pairing required"; then
-            echo "⚠ 文件权限正确但 gateway 缓存过期，需要重启 gateway..."
-            GW_PID=$(find_gateway_pid)
-            if [ -n "$GW_PID" ]; then
-                echo "  停止 gateway (PID $GW_PID)..."
-                kill "$GW_PID"
-                wait_gateway_stop "$GW_PID"
+        # 文件已正确，检查是否需要重启 gateway 使其生效
+        NEED_RESTART=""
+        GW_PID=$(find_gateway_pid)
+        if [ -n "$GW_PID" ]; then
+            # 比较 gateway 启动时间和文件修改时间
+            FILE_TS=$(stat -c %Y "$PAIRED_FILE" 2>/dev/null || stat -f %m "$PAIRED_FILE" 2>/dev/null || echo 0)
+            PROC_TS=$(ps -o lstart= -p "$GW_PID" 2>/dev/null | xargs -I{} date -d "{}" +%s 2>/dev/null || echo 9999999999)
+            if [ "$FILE_TS" -gt "$PROC_TS" ] 2>/dev/null; then
+                NEED_RESTART="yes"
             fi
-            echo "  重启 gateway..."
+        fi
+        if [ -n "$NEED_RESTART" ]; then
+            echo "⚠ gateway 启动早于文件修改，需要重启使其生效..."
+            kill "$GW_PID"
+            wait_gateway_stop "$GW_PID"
             openclaw gateway start 2>/dev/null || true
             sleep 3
             GW_NEW_PID=$(find_gateway_pid)
