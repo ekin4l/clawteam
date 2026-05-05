@@ -65,100 +65,45 @@ check_and_fix_scopes() {
 
     [ ! -f "$PAIRED_FILE" ] && return
 
-    # 检查 paired.json 和 device-auth.json 是否都有 operator.write
-    HAS_WRITE=$(python3 -c "
-import json
-ok = True
-for path in ['$PAIRED_FILE', '$AUTH_FILE']:
-    try:
-        data = json.load(open(path))
-    except (FileNotFoundError, json.JSONDecodeError):
-        ok = False
-        continue
-    if isinstance(data, dict):
-        entries = data.values() if 'tokens' in str(data) else [data]
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            top_scopes = entry.get('scopes', [])
-            tok_scopes = []
-            for tok in entry.get('tokens', {}).values():
-                if isinstance(tok, dict):
-                    tok_scopes.extend(tok.get('scopes', []))
-            if 'operator.write' not in top_scopes and 'operator.write' not in tok_scopes:
-                ok = False
-if ok:
-    print('yes')
-else:
-    print('no')
-" 2>/dev/null || echo "no")
-
-    if [ "$HAS_WRITE" = "yes" ]; then
-        # 文件已正确，检查是否需要重启 gateway 使其生效
-        NEED_RESTART=""
-        GW_PID=$(find_gateway_pid)
-        if [ -n "$GW_PID" ]; then
-            # 比较 gateway 启动时间和文件修改时间
-            FILE_TS=$(stat -c %Y "$PAIRED_FILE" 2>/dev/null || stat -f %m "$PAIRED_FILE" 2>/dev/null || echo 0)
-            PROC_TS=$(ps -o lstart= -p "$GW_PID" 2>/dev/null | xargs -I{} date -d "{}" +%s 2>/dev/null || echo 9999999999)
-            if [ "$FILE_TS" -gt "$PROC_TS" ] 2>/dev/null; then
-                NEED_RESTART="yes"
-            fi
-        fi
-        if [ -n "$NEED_RESTART" ]; then
-            echo "⚠ gateway 启动早于文件修改，需要重启使其生效..."
-            gateway_restart
-            GW_NEW_PID=$(find_gateway_pid)
-            if [ -n "$GW_NEW_PID" ]; then
-                echo "  gateway 已重启 (PID $GW_NEW_PID) ✓"
-            fi
-        fi
-        return
-    fi
-
-    echo "⚠ 检测到设备缺少 operator.write 权限（cron 任务需要），正在离线修复..."
-
-    # 1. 停止 gateway
-    echo "  停止 gateway..."
-    gateway_stop
-    sleep 2
-    GW_CHECK=$(find_gateway_pid)
-    if [ -n "$GW_CHECK" ]; then
-        echo "  WARNING: gateway 仍在运行，继续修复..."
-    fi
-
-    # 2. 修复 paired.json + identity/device-auth.json（顶层 scopes + tokens 内部 scopes）
+    # 1. 确保文件权限正确（补齐 operator.write 等 scope）
+    echo "  检查设备权限文件..."
     python3 -c "
 import json, shutil, time
 from pathlib import Path
 
 WANTED = ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing']
+changed = False
 
 def merge_scopes(scopes):
     if not isinstance(scopes, list):
         scopes = []
+    original = list(scopes)
     for s in WANTED:
         if s not in scopes:
             scopes.append(s)
-    return scopes
+    return scopes, scopes != original
 
 def patch_entry(obj):
+    global changed
     if not isinstance(obj, dict):
         return
-    obj['scopes'] = merge_scopes(obj.get('scopes'))
+    new_scopes, modified = merge_scopes(obj.get('scopes', []))
+    if modified:
+        obj['scopes'] = new_scopes
+        changed = True
     tokens = obj.get('tokens', {})
     if isinstance(tokens, dict):
         op = tokens.get('operator', {})
         if isinstance(op, dict):
-            op['scopes'] = merge_scopes(op.get('scopes'))
+            new_scopes, modified = merge_scopes(op.get('scopes', []))
+            if modified:
+                op['scopes'] = new_scopes
+                changed = True
 
 for path_str in ['$PAIRED_FILE', '$AUTH_FILE']:
     path = Path(path_str)
     if not path.exists():
-        print(f'  SKIP: {path} 不存在')
         continue
-    backup = str(path) + f'.bak.{int(time.time())}'
-    shutil.copy2(str(path), backup)
     data = json.loads(path.read_text())
     if isinstance(data, dict):
         if 'tokens' in data:
@@ -166,27 +111,30 @@ for path_str in ['$PAIRED_FILE', '$AUTH_FILE']:
         for v in data.values():
             if isinstance(v, dict):
                 patch_entry(v)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
-    print(f'  PATCHED: {path}')
+    if changed:
+        backup = str(path) + f'.bak.{int(time.time())}'
+        shutil.copy2(str(path), backup)
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+        print(f'  PATCHED: {path}')
+    else:
+        print(f'  OK: {path}')
 
-# 清空 pending 请求
-pending = Path('$PENDING_FILE')
-if pending.exists():
-    pending.write_text('{}')
-    print('  CLEARED: pending requests')
+if changed:
+    # 清空 pending 请求
+    pending = Path('$PENDING_FILE')
+    if pending.exists():
+        pending.write_text('{}')
+        print('  CLEARED: pending requests')
 "
 
-    echo "  设备权限已离线升级 ✓"
-
-    # 3. 重启 gateway
+    # 2. 重启 gateway（确保加载最新文件状态）
     echo "  重启 gateway..."
-    gateway_start
-    sleep 3
+    gateway_restart
 
-    # 4. 验证 gateway 已启动
+    # 3. 验证
     GW_NEW_PID=$(find_gateway_pid)
     if [ -n "$GW_NEW_PID" ]; then
-        echo "  gateway 已启动 (PID $GW_NEW_PID) ✓"
+        echo "  gateway 已重启 (PID $GW_NEW_PID) ✓"
     else
         echo "  WARNING: gateway 未检测到，可能需要手动启动: systemctl --user start $GW_SERVICE"
     fi
