@@ -53,52 +53,89 @@ gateway_restart() {
     sleep 3
 }
 
-# ── 检查并修复 OpenClaw 设备权限 ──
+# ── 检查并修复 OpenClaw 设备权限（方案二：重建 CLI 身份）──
 check_and_fix_scopes() {
     if ! command -v openclaw &>/dev/null; then
         return
     fi
     STATE_DIR=$(python3 -c "import yaml; print(yaml.safe_load(open('$INSTANCE'))['openclaw']['state_dir'])")
+    IDENTITY_DIR="$STATE_DIR/identity"
     PAIRED_FILE="$STATE_DIR/devices/paired.json"
-    AUTH_FILE="$STATE_DIR/identity/device-auth.json"
+    AUTH_FILE="$IDENTITY_DIR/device-auth.json"
+    DEVICE_FILE="$IDENTITY_DIR/device.json"
     PENDING_FILE="$STATE_DIR/devices/pending.json"
 
     [ ! -f "$PAIRED_FILE" ] && return
 
-    # 1. 确保文件权限正确（补齐 operator.write 等 scope）
-    echo "  检查设备权限文件..."
-    python3 -c "
+    # 先快速测试：如果 cron list 能用，说明权限正常
+    if openclaw cron list &>/dev/null; then
+        return
+    fi
+
+    echo "⚠ 设备权限不足，执行身份重建..."
+
+    # 1. 停止 gateway
+    echo "  停止 gateway..."
+    gateway_stop
+    sleep 2
+
+    # 2. 备份旧身份文件
+    BACKUP_DIR="$STATE_DIR/identity_bak_$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    [ -f "$DEVICE_FILE" ] && cp -a "$DEVICE_FILE" "$BACKUP_DIR/"
+    [ -f "$AUTH_FILE" ] && cp -a "$AUTH_FILE" "$BACKUP_DIR/"
+    echo "  旧身份备份到: $BACKUP_DIR"
+
+    # 3. 删除旧身份，让 CLI 重新生成
+    rm -f "$DEVICE_FILE" "$AUTH_FILE"
+    echo "  旧身份已移除"
+
+    # 4. 清空 pending 请求
+    [ -f "$PENDING_FILE" ] && echo '{}' > "$PENDING_FILE"
+
+    # 5. 启动 gateway
+    echo "  启动 gateway..."
+    gateway_start
+
+    # 6. 触发新身份生成（openclaw devices list 会自动生成）
+    sleep 3
+    DEVICES_OUTPUT=$(openclaw devices list 2>&1 || true)
+    echo "$DEVICES_OUTPUT" | head -5
+
+    # 7. 尝试 approve 新请求
+    NEW_REQUEST=$(echo "$DEVICES_OUTPUT" | grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
+    if [ -n "$NEW_REQUEST" ]; then
+        echo "  尝试批准新请求: $NEW_REQUEST"
+        openclaw devices approve "$NEW_REQUEST" 2>/dev/null && echo "  批准成功 ✓" || {
+            echo "  approve 失败，执行方案一（离线补丁）..."
+
+            # 方案一 fallback：停止 gateway，补齐新身份文件的 scopes，重启
+            gateway_stop
+            sleep 2
+
+            python3 -c "
 import json, shutil, time
 from pathlib import Path
 
 WANTED = ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing']
-changed = False
 
 def merge_scopes(scopes):
     if not isinstance(scopes, list):
         scopes = []
-    original = list(scopes)
     for s in WANTED:
         if s not in scopes:
             scopes.append(s)
-    return scopes, scopes != original
+    return scopes
 
 def patch_entry(obj):
-    global changed
     if not isinstance(obj, dict):
         return
-    new_scopes, modified = merge_scopes(obj.get('scopes', []))
-    if modified:
-        obj['scopes'] = new_scopes
-        changed = True
+    obj['scopes'] = merge_scopes(obj.get('scopes'))
     tokens = obj.get('tokens', {})
     if isinstance(tokens, dict):
         op = tokens.get('operator', {})
         if isinstance(op, dict):
-            new_scopes, modified = merge_scopes(op.get('scopes', []))
-            if modified:
-                op['scopes'] = new_scopes
-                changed = True
+            op['scopes'] = merge_scopes(op.get('scopes'))
 
 for path_str in ['$PAIRED_FILE', '$AUTH_FILE']:
     path = Path(path_str)
@@ -111,32 +148,34 @@ for path_str in ['$PAIRED_FILE', '$AUTH_FILE']:
         for v in data.values():
             if isinstance(v, dict):
                 patch_entry(v)
-    if changed:
-        backup = str(path) + f'.bak.{int(time.time())}'
-        shutil.copy2(str(path), backup)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
-        print(f'  PATCHED: {path}')
-    else:
-        print(f'  OK: {path}')
+    backup = str(path) + f'.bak.{int(time.time())}'
+    shutil.copy2(str(path), backup)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    print(f'  PATCHED: {path}')
 
-if changed:
-    # 清空 pending 请求
-    pending = Path('$PENDING_FILE')
-    if pending.exists():
-        pending.write_text('{}')
-        print('  CLEARED: pending requests')
+pending = Path('$PENDING_FILE')
+if pending.exists():
+    pending.write_text('{}')
 "
+            echo "  离线补丁完成"
+            gateway_start
+        }
+    fi
 
-    # 2. 重启 gateway（确保加载最新文件状态）
-    echo "  重启 gateway..."
-    gateway_restart
-
-    # 3. 验证
+    # 8. 验证
+    sleep 2
     GW_NEW_PID=$(find_gateway_pid)
     if [ -n "$GW_NEW_PID" ]; then
-        echo "  gateway 已重启 (PID $GW_NEW_PID) ✓"
+        echo "  gateway 运行中 (PID $GW_NEW_PID) ✓"
     else
-        echo "  WARNING: gateway 未检测到，可能需要手动启动: systemctl --user start $GW_SERVICE"
+        echo "  WARNING: gateway 未检测到"
+    fi
+
+    # 9. 最终验证 cron 权限
+    if openclaw cron list &>/dev/null; then
+        echo "  cron 权限验证通过 ✓"
+    else
+        echo "  WARNING: cron 权限仍不可用，请手动检查: openclaw devices list"
     fi
 }
 check_and_fix_scopes
