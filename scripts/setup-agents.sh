@@ -10,26 +10,47 @@ if [ ! -f "$INSTANCE" ]; then
     exit 1
 fi
 
-# ── Gateway 进程管理 ──
-# 查找 gateway 进程 PID（可能以 systemd 或直接进程方式运行）
+# ── Gateway 进程管理（user 级 systemd 服务）──
+GW_SERVICE="openclaw-gateway.service"
+
 find_gateway_pid() {
     pgrep -f 'openclaw.*gateway' 2>/dev/null || true
 }
 
-# 等待 gateway 进程完全退出
-wait_gateway_stop() {
-    local pid="$1"
-    local waited=0
-    while kill -0 "$pid" 2>/dev/null; do
-        sleep 1
-        waited=$((waited + 1))
-        if [ "$waited" -ge 15 ]; then
-            echo "  强制终止 gateway (PID $pid)..."
-            kill -9 "$pid" 2>/dev/null || true
+gateway_stop() {
+    # 优先使用 systemctl --user
+    if systemctl --user list-unit-files "$GW_SERVICE" &>/dev/null; then
+        systemctl --user stop "$GW_SERVICE" 2>/dev/null && return
+    fi
+    # fallback: 直接 kill 进程
+    local pid=$(find_gateway_pid)
+    if [ -n "$pid" ]; then
+        kill "$pid" 2>/dev/null || true
+        local waited=0
+        while kill -0 "$pid" 2>/dev/null; do
             sleep 1
-            break
-        fi
-    done
+            waited=$((waited + 1))
+            if [ "$waited" -ge 10 ]; then
+                kill -9 "$pid" 2>/dev/null || true
+                break
+            fi
+        done
+    fi
+}
+
+gateway_start() {
+    if systemctl --user list-unit-files "$GW_SERVICE" &>/dev/null; then
+        systemctl --user start "$GW_SERVICE" 2>/dev/null && return
+    fi
+    # fallback: openclaw gateway start
+    openclaw gateway start 2>/dev/null || true
+}
+
+gateway_restart() {
+    gateway_stop
+    sleep 2
+    gateway_start
+    sleep 3
 }
 
 # ── 检查并修复 OpenClaw 设备权限 ──
@@ -86,10 +107,7 @@ else:
         fi
         if [ -n "$NEED_RESTART" ]; then
             echo "⚠ gateway 启动早于文件修改，需要重启使其生效..."
-            kill "$GW_PID"
-            wait_gateway_stop "$GW_PID"
-            openclaw gateway start 2>/dev/null || true
-            sleep 3
+            gateway_restart
             GW_NEW_PID=$(find_gateway_pid)
             if [ -n "$GW_NEW_PID" ]; then
                 echo "  gateway 已重启 (PID $GW_NEW_PID) ✓"
@@ -100,15 +118,13 @@ else:
 
     echo "⚠ 检测到设备缺少 operator.write 权限（cron 任务需要），正在离线修复..."
 
-    # 1. 找到并停止 gateway 进程
-    GW_PID=$(find_gateway_pid)
-    if [ -n "$GW_PID" ]; then
-        echo "  发现 gateway 进程 (PID $GW_PID)，正在停止..."
-        kill "$GW_PID"
-        wait_gateway_stop "$GW_PID"
-        echo "  gateway 已停止 ✓"
-    else
-        echo "  gateway 未运行，跳过停止步骤"
+    # 1. 停止 gateway
+    echo "  停止 gateway..."
+    gateway_stop
+    sleep 2
+    GW_CHECK=$(find_gateway_pid)
+    if [ -n "$GW_CHECK" ]; then
+        echo "  WARNING: gateway 仍在运行，继续修复..."
     fi
 
     # 2. 修复 paired.json + identity/device-auth.json（顶层 scopes + tokens 内部 scopes）
@@ -164,7 +180,7 @@ if pending.exists():
 
     # 3. 重启 gateway
     echo "  重启 gateway..."
-    openclaw gateway start 2>/dev/null || true
+    gateway_start
     sleep 3
 
     # 4. 验证 gateway 已启动
@@ -172,7 +188,7 @@ if pending.exists():
     if [ -n "$GW_NEW_PID" ]; then
         echo "  gateway 已启动 (PID $GW_NEW_PID) ✓"
     else
-        echo "  WARNING: gateway 未检测到，可能需要手动启动: openclaw gateway start"
+        echo "  WARNING: gateway 未检测到，可能需要手动启动: systemctl --user start $GW_SERVICE"
     fi
 }
 check_and_fix_scopes
