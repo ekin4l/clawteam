@@ -17,6 +17,12 @@ outputs:
   - 格式化的团队日报消息
   - 飞书网盘中的日报归档文件
 
+output_config:
+  base_dir: "日报"                            # 飞书网盘中的根目录名
+  daily_report_file: "{name}-{date}.md"       # 日报文件名模板
+  chat_record_file: "{name}-{date}-聊天记录.md" # 聊天记录文件名模板
+  per_person_dir: true                         # 按人名建子目录
+
 workflow:
   step_1_collect:
     description: "逐一私聊每位需要写日报的同学，收集工作进展"
