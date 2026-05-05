@@ -3,7 +3,7 @@
 ## Available Tools
 
 {% for wi in work_items %}
-{% if wi.tools is defined %}
+{% if wi.tools is defined and wi.tools %}
 ### {{ wi.display_name }}
 {% for tool_ref in wi.tools %}
 - {{ tool_ref }}

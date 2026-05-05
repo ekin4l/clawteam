@@ -77,4 +77,4 @@ def _import_from_archive(archive_path: Path, workspace: Path, force: bool) -> No
             target = workspace / member.name
             if target.exists() and not force:
                 raise FileExistsError(f"{member.name} already exists. Use force=True to overwrite.")
-        tar.extractall(path=str(workspace))
+        tar.extractall(path=str(workspace), filter="data")

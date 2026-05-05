@@ -13,7 +13,16 @@ if [ -z "$ROLE_KEY" ]; then
 fi
 
 if [ "$ROLE_KEY" = "--all" ]; then
-    ROLE_KEYS="assistant architect quality ops tester"
+    ROLE_KEYS=$(python3 -c "
+import yaml, glob
+from pathlib import Path
+agents = []
+for f in sorted(glob.glob('agents/*.yaml')):
+    if not Path(f).name.startswith('_'):
+        data = yaml.safe_load(open(f))
+        agents.append(data['role_key'])
+print(' '.join(agents))
+")
 else
     ROLE_KEYS="$ROLE_KEY"
 fi

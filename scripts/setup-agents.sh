@@ -14,7 +14,16 @@ TARGET="${2:-}"
 
 if [ "$1" = "--all" ]; then
     echo "=== Setting up all agents ==="
-    AGENTS=(assistant architect quality ops tester)
+    AGENTS=$(python3 -c "
+import yaml, glob
+from pathlib import Path
+agents = []
+for f in sorted(glob.glob('agents/*.yaml')):
+    if not Path(f).name.startswith('_'):
+        data = yaml.safe_load(open(f))
+        agents.append(data['role_key'])
+print(' '.join(agents))
+")
 elif [ -n "$1" ]; then
     AGENTS=("$1")
 else
@@ -28,7 +37,7 @@ data = yaml.safe_load(open('$INSTANCE'))
 print(data['openclaw']['agents_dir'])
 ")
 
-for ROLE_KEY in "${AGENTS[@]}"; do
+for ROLE_KEY in $AGENTS; do
     echo "--- Setting up agent: $ROLE_KEY ---"
 
     WORKSPACE="$AGENTS_DIR/$ROLE_KEY/workspace"
