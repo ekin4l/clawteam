@@ -61,18 +61,7 @@ fi
 for ROLE_KEY in $TARGETS; do
     echo "--- 回滚 agent: $ROLE_KEY ---"
 
-    # 1. 删除通过 openclaw agents add 创建的 agent
-    if command -v openclaw &>/dev/null; then
-        if openclaw agents list 2>/dev/null | grep -q "$ROLE_KEY"; then
-            echo "删除 OpenClaw agent: $ROLE_KEY"
-            openclaw agents delete "$ROLE_KEY" --non-interactive 2>/dev/null || \
-                echo "WARNING: 删除失败，可能需要手动删除"
-        else
-            echo "OpenClaw agent $ROLE_KEY 不存在，跳过"
-        fi
-    fi
-
-    # 2. 恢复工作区文件
+    # 1. 恢复工作区文件（不删除 agent，保留认证和会话）
     AGENT_WORKSPACE="$AGENTS_DIR/$ROLE_KEY/workspace"
     if [ ! -d "$AGENT_WORKSPACE" ]; then
         AGENT_WORKSPACE="$AGENTS_DIR/$ROLE_KEY"
@@ -88,7 +77,16 @@ for ROLE_KEY in $TARGETS; do
         rm -rf "$AGENT_WORKSPACE"
     fi
 
-    # 3. 删除该 agent 的 cron 任务
+    # 2. 恢复 agent 认证文件（如果有备份）
+    AGENT_AUTH_DIR="$AGENTS_DIR/$ROLE_KEY/agent"
+    BACKUP_AUTH_DIR="$LATEST_BACKUP/$ROLE_KEY/agent"
+    if [ -d "$BACKUP_AUTH_DIR" ]; then
+        echo "恢复认证: $AGENT_AUTH_DIR"
+        rm -rf "$AGENT_AUTH_DIR"
+        cp -r "$BACKUP_AUTH_DIR" "$AGENT_AUTH_DIR"
+    fi
+
+    # 3. 删除该 agent 的 cron 任务（仅删除由 setup-agents.sh 创建的）
     if command -v openclaw &>/dev/null; then
         echo "清理 $ROLE_KEY 的 cron 任务..."
         openclaw cron list 2>/dev/null | grep "$ROLE_KEY" | awk '{print $1}' | while read -r cron_id; do
@@ -103,13 +101,14 @@ done
 # 如果是 --all 且 main agent 有备份，恢复 main
 if [ "${1:-}" = "--all" ] && [ -d "$LATEST_BACKUP/main" ]; then
     echo "--- 恢复 main agent ---"
-    if [ -d "$LATEST_BACKUP/main/workspace" ]; then
+    if [ -d "$LATEST_BACKUP/main" ]; then
         echo "恢复 main 工作区: $WORKSPACE_ROOT"
-        # 只恢复我们自己修改过的文件，不覆盖 agent 自己的 memory
-        for f in SOUL.md AGENTS.md IDENTITY.md HEARTBEAT.md TOOLS.md TEAM.md; do
-            if [ -f "$LATEST_BACKUP/main/workspace/$f" ]; then
-                cp "$LATEST_BACKUP/main/workspace/$f" "$WORKSPACE_ROOT/$f" 2>/dev/null || true
-            fi
+        # 恢复所有备份的 .md 文件，不覆盖 agent 自己的 memory/USER.md
+        for f in "$LATEST_BACKUP/main/"*.md; do
+            fname=$(basename "$f")
+            # 跳过 MEMORY.md 和 USER.md（agent 自主维护的文件）
+            [ "$fname" = "MEMORY.md" ] || [ "$fname" = "USER.md" ] && continue
+            [ -f "$f" ] && cp "$f" "$WORKSPACE_ROOT/$fname" 2>/dev/null || true
         done
         echo "main agent 已恢复 ✓"
     fi

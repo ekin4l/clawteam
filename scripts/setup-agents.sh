@@ -37,25 +37,34 @@ data = yaml.safe_load(open('$INSTANCE'))
 print(data['openclaw']['agents_dir'])
 ")
 
-# ── 备份现有 workspace（用于 rollback-agents.sh 回滚）──
+# ── 备份现有 workspace + agent 认证（用于 rollback-agents.sh 回滚）──
 BACKUP_DIR="$PROJECT_DIR/.backups/setup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 for RK in $AGENTS; do
+    # 备份 workspace 文件
     WS="$AGENTS_DIR/$RK/workspace"
     [ ! -d "$WS" ] && WS="$AGENTS_DIR/$RK"
     if [ -d "$WS" ]; then
-        echo "备份 $RK → $BACKUP_DIR/$RK/"
+        echo "备份 $RK workspace → $BACKUP_DIR/$RK/workspace"
         mkdir -p "$BACKUP_DIR/$RK"
         cp -r "$WS" "$BACKUP_DIR/$RK/workspace"
+    fi
+    # 备份 agent 认证文件（auth.json, auth-profiles.json）
+    AGENT_DIR="$AGENTS_DIR/$RK/agent"
+    if [ -d "$AGENT_DIR" ]; then
+        echo "备份 $RK 认证 → $BACKUP_DIR/$RK/agent"
+        cp -r "$AGENT_DIR" "$BACKUP_DIR/$RK/agent"
     fi
 done
 if [ "$1" = "--all" ]; then
     WS_ROOT=$(python3 -c "import yaml; print(yaml.safe_load(open('$INSTANCE'))['openclaw']['workspace_root'])")
     if [ -d "$WS_ROOT" ]; then
         mkdir -p "$BACKUP_DIR/main"
-        for f in SOUL.md AGENTS.md IDENTITY.md HEARTBEAT.md TOOLS.md TEAM.md; do
-            [ -f "$WS_ROOT/$f" ] && cp "$WS_ROOT/$f" "$BACKUP_DIR/main/" 2>/dev/null || true
+        # 备份所有 .md 文件（包括 BOOTSTRAP.md 等）
+        for f in "$WS_ROOT"/*.md; do
+            [ -f "$f" ] && cp "$f" "$BACKUP_DIR/main/" 2>/dev/null || true
         done
+        echo "备份 main agent workspace → $BACKUP_DIR/main"
     fi
 fi
 echo "备份已保存: $BACKUP_DIR"
