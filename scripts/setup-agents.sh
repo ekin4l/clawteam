@@ -97,8 +97,25 @@ else:
         fi
     fi
 
-    python3 scripts/render-workspace.py --agent "$ROLE_KEY" --output "$AGENTS_DIR"
-    echo "Agent $ROLE_KEY configured."
+    if [ -n "$TARGET" ]; then
+        # --target: 将配置渲染到目标 agent 的 workspace
+        TARGET_WS=$(python3 -c "
+import yaml
+data = yaml.safe_load(open('$INSTANCE'))
+agents = data.get('agents', {}).get('existing', [])
+target_agent = [a for a in agents if a['role_key'] == '$TARGET']
+if target_agent:
+    print(target_agent[0]['workspace'])
+else:
+    # fallback: 尝试 workspace_root (main agent)
+    print(data['openclaw']['workspace_root'])
+")
+        python3 scripts/render-workspace.py --agent "$ROLE_KEY" --workspace "$TARGET_WS"
+        echo "Agent $ROLE_KEY 配置已应用到 $TARGET (workspace: $TARGET_WS)"
+    else
+        python3 scripts/render-workspace.py --agent "$ROLE_KEY" --output "$AGENTS_DIR"
+        echo "Agent $ROLE_KEY configured."
+    fi
 
     # --- Setup scheduled cron tasks for this agent ---
     echo "Setting up scheduled tasks for $ROLE_KEY..."

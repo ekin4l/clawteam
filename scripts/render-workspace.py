@@ -21,7 +21,8 @@ def main():
     parser.add_argument("--all", action="store_true", help="Render all agents")
     parser.add_argument("--project-dir", default=".", help="Project root directory")
     parser.add_argument("--instance", default="instance.yaml", help="instance.yaml path")
-    parser.add_argument("--output", help="Override output directory")
+    parser.add_argument("--output", help="Override agents_dir")
+    parser.add_argument("--workspace", help="Override target workspace path directly")
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).resolve()
@@ -56,7 +57,9 @@ def main():
 
         render_all_templates(project_dir, agent, templates_dir, rendered_dir)
 
-        if args.output:
+        if args.workspace:
+            workspace = Path(args.workspace)
+        elif args.output:
             workspace = agents_dir / role_key / "workspace"
         elif instance_path.exists():
             data = yaml.safe_load(instance_path.read_text())
