@@ -1,0 +1,15 @@
+name: feishu_drive
+display_name: 飞书云文档/网盘
+category: feishu
+description: 读写飞书云文档和网盘文件，包括创建文件夹、上传文件、写入文档内容
+approval_level: low
+operations:
+  - create_folder
+  - upload_file
+  - write_document
+  - list_files
+  - get_folder_by_path
+api_config:
+  connector: feishu
+  base_url_ref: "${FEISHU_BASE_URL}"
+  auth_type: app_token

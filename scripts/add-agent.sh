@@ -13,7 +13,8 @@ read -rp "Emoji (e.g., 💻): " EMOJI
 read -rp "Model (default: zai/glm-4.7): " MODEL
 MODEL="${MODEL:-zai/glm-4.7}"
 
-FILENAME="agents/${ROLE_KEY}_${DISPLAY_NAME,,}.yaml"
+DISPLAY_LOWER=$(echo "$DISPLAY_NAME" | tr '[:upper:]' '[:lower:]')
+FILENAME="agents/${ROLE_KEY}_${DISPLAY_LOWER}.yaml"
 
 cat > "$FILENAME" << EOF
 role_key: $ROLE_KEY
