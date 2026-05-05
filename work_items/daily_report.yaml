@@ -23,6 +23,7 @@ workflow:
     action: "遍历 team/ 中 daily_report=true 的成员，通过飞书私聊发起日报收集"
     rules:
       - "与每位同学单独私聊，不在群里收集"
+      - "使用 team 配置中的 nickname 昵称称呼对方，不用真实姓名"
       - "询问当日完成的工作、遇到的问题、明日计划"
 
   step_2_followup:

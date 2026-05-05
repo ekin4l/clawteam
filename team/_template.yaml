@@ -1,8 +1,10 @@
-name: ""
-feishu_id: ""
+name: ""                   # 真实姓名
+nickname: ""               # 昵称，agent 沟通时使用的称呼
+feishu_id: ""              # 飞书 user_id（如 ou_xxx）
+openclaw_allowlist: false   # 是否加入 OpenClaw 私聊白名单
 role: ""
 responsibilities: []
 goals: []
 modules: []
-daily_report: false       # 是否需要写日报
+daily_report: false        # 是否需要写日报
 notes: ""
