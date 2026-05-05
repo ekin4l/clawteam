@@ -168,6 +168,50 @@ for wi_name in work_item_names:
         print(f'  Warning: openclaw cron not available, skipping {display_name}')
 " 2>/dev/null || echo "  Warning: scheduled task setup failed for $ROLE_KEY"
 
+    # --- 绑定消息通道（仅对外沟通的 agent）---
+    COMMUNICATES=$(python3 -c "
+import yaml, glob
+files = glob.glob('agents/${ROLE_KEY}_*.yaml')
+if files:
+    data = yaml.safe_load(open(files[0]))
+    print(str(data.get('communicates_externally', False)).lower())
+else:
+    print('false')
+" 2>/dev/null || echo "false")
+
+    if [ "$COMMUNICATES" = "true" ] && [ -z "$TARGET" ]; then
+        echo "检测到 $ROLE_KEY 需要对外沟通，查找可用通道..."
+        if command -v openclaw &>/dev/null; then
+            # 查找已启用的通道（feishu/slack/discord 等）
+            CHANNELS=$(openclaw channels list 2>/dev/null | grep -iE 'configured.*enabled|enabled.*configured' | head -5 || true)
+            if [ -n "$CHANNELS" ]; then
+                echo "发现通道:"
+                echo "$CHANNELS" | sed 's/^/  /'
+                # 提取通道名（Feishu default → feishu）
+                CH_NAME=$(echo "$CHANNELS" | head -1 | grep -oiE 'feishu|slack|discord|telegram|wecom|dingtalk' || true)
+                if [ -n "$CH_NAME" ]; then
+                    echo "绑定通道 '$CH_NAME' 到 agent $ROLE_KEY..."
+                    BIND_RESULT=$(openclaw agents bind --agent "$ROLE_KEY" --bind "$CH_NAME" 2>&1 || true)
+                    echo "$BIND_RESULT"
+                    # 验证绑定
+                    sleep 1
+                    BIND_CHECK=$(openclaw agents list --all --bindings 2>&1 | grep -A5 "$ROLE_KEY" || true)
+                    if echo "$BIND_CHECK" | grep -qi "routing"; then
+                        echo "通道绑定成功 ✓"
+                    else
+                        echo "Warning: 无法确认绑定结果，请手动检查: openclaw agents list --all --bindings"
+                    fi
+                else
+                    echo "Warning: 未识别的通道类型，请手动绑定: openclaw agents bind --agent $ROLE_KEY --bind <channel>"
+                fi
+            else
+                echo "Warning: 未发现已配置的通道。请先配置飞书等通道后再运行此脚本。"
+            fi
+        else
+            echo "Warning: openclaw CLI 不可用，跳过通道绑定"
+        fi
+    fi
+
 done
 
 echo "=== Done ==="
