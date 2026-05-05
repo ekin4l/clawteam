@@ -10,6 +10,28 @@ if [ ! -f "$INSTANCE" ]; then
     exit 1
 fi
 
+# ── Gateway 进程管理 ──
+# 查找 gateway 进程 PID（可能以 systemd 或直接进程方式运行）
+find_gateway_pid() {
+    pgrep -f 'openclaw.*gateway' 2>/dev/null || true
+}
+
+# 等待 gateway 进程完全退出
+wait_gateway_stop() {
+    local pid="$1"
+    local waited=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 1
+        waited=$((waited + 1))
+        if [ "$waited" -ge 15 ]; then
+            echo "  强制终止 gateway (PID $pid)..."
+            kill -9 "$pid" 2>/dev/null || true
+            sleep 1
+            break
+        fi
+    done
+}
+
 # ── 检查并修复 OpenClaw 设备权限 ──
 check_and_fix_scopes() {
     if ! command -v openclaw &>/dev/null; then
@@ -30,9 +52,9 @@ for path in ['$PAIRED_FILE', '$AUTH_FILE']:
     try:
         data = json.load(open(path))
     except (FileNotFoundError, json.JSONDecodeError):
+        ok = False
         continue
     if isinstance(data, dict):
-        # paired.json: {deviceId: {scopes: [...], tokens: {operator: {scopes: [...]}}}}
         entries = data.values() if 'tokens' in str(data) else [data]
         for entry in entries:
             if not isinstance(entry, dict):
@@ -56,17 +78,18 @@ else:
 
     echo "⚠ 检测到设备缺少 operator.write 权限（cron 任务需要），正在离线修复..."
 
-    # 停止 gateway
-    openclaw gateway stop 2>/dev/null || true
-    sleep 3
-
-    # 确认 gateway 已停止
-    if pgrep -f 'openclaw.*gateway' &>/dev/null; then
-        echo "等待 gateway 完全停止..."
-        sleep 5
+    # 1. 找到并停止 gateway 进程
+    GW_PID=$(find_gateway_pid)
+    if [ -n "$GW_PID" ]; then
+        echo "  发现 gateway 进程 (PID $GW_PID)，正在停止..."
+        kill "$GW_PID"
+        wait_gateway_stop "$GW_PID"
+        echo "  gateway 已停止 ✓"
+    else
+        echo "  gateway 未运行，跳过停止步骤"
     fi
 
-    # 同时修复 paired.json + identity/device-auth.json（顶层 scopes + tokens 内部 scopes）
+    # 2. 修复 paired.json + identity/device-auth.json（顶层 scopes + tokens 内部 scopes）
     python3 -c "
 import json, shutil, time
 from pathlib import Path
@@ -115,11 +138,20 @@ if pending.exists():
     print('  CLEARED: pending requests')
 "
 
-    echo "设备权限已离线升级 ✓"
+    echo "  设备权限已离线升级 ✓"
 
-    # 重启 gateway
+    # 3. 重启 gateway
+    echo "  重启 gateway..."
     openclaw gateway start 2>/dev/null || true
     sleep 3
+
+    # 4. 验证 gateway 已启动
+    GW_NEW_PID=$(find_gateway_pid)
+    if [ -n "$GW_NEW_PID" ]; then
+        echo "  gateway 已启动 (PID $GW_NEW_PID) ✓"
+    else
+        echo "  WARNING: gateway 未检测到，可能需要手动启动: openclaw gateway start"
+    fi
 }
 check_and_fix_scopes
 
