@@ -76,3 +76,43 @@ def load_tools(tools_dir: Path) -> list[dict[str, Any]]:
             continue
         tools.append(_load_yaml(f))
     return tools
+
+
+def load_storage(path: Path) -> dict[str, Any]:
+    """Load storage configuration (Feishu Drive folder tokens etc.)."""
+    return _load_yaml(path)
+
+
+def resolve_output_storage(
+    work_item: dict[str, Any], storage: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Resolve a work item's output_config against storage.yaml.
+
+    Returns a dict with resolved directory info, or None if no output_config.
+    """
+    output_config = work_item.get("output_config")
+    if not output_config:
+        return None
+
+    storage_ref = output_config.get("storage_ref", "")
+    dir_key = output_config.get("dir_key", "")
+
+    result = {
+        "storage_ref": storage_ref,
+        "dir_key": dir_key,
+        "file_templates": {
+            k: v for k, v in output_config.items()
+            if k.endswith("_file")
+        },
+        "per_person_dir": output_config.get("per_person_dir", False),
+    }
+
+    # Resolve the target directory from storage config
+    if storage_ref and dir_key:
+        storage_section = storage.get(storage_ref, {})
+        root = storage_section.get("root_folder_token", "")
+        dirs = storage_section.get("dirs", {})
+        result["root_folder_token"] = root
+        result["target_dir"] = dirs.get(dir_key, dir_key)
+
+    return result

@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from clawteam_glm.config import load_work_item, load_compliance, load_assignments, load_team_members
+from clawteam_glm.config import load_work_item, load_compliance, load_assignments, load_team_members, load_storage, resolve_output_storage
 
 
 def build_template_context(project_dir: Path, agent_config: dict[str, Any]) -> dict[str, Any]:
@@ -29,6 +29,15 @@ def build_template_context(project_dir: Path, agent_config: dict[str, Any]) -> d
     compliance = load_compliance(compliance_path) if compliance_path.exists() else {"version": "1.0", "rules": {}}
     team = load_team_members(project_dir / "team")
     collaboration = [c for c in assignments.get("collaboration", []) if role_key in c.get("agents", [])]
+
+    # Load storage config and resolve output targets for each work item
+    storage_path = project_dir / "storage.yaml"
+    storage = load_storage(storage_path) if storage_path.exists() else {}
+    for wi in work_items:
+        resolved = resolve_output_storage(wi, storage)
+        if resolved:
+            wi["resolved_output"] = resolved
+
     return {"agent": agent_config, "work_items": work_items, "compliance": compliance, "team": team, "collaboration": collaboration}
 
 

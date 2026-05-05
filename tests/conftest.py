@@ -117,10 +117,26 @@ def sample_instance_yaml():
 def sample_team_member_yaml():
     return {
         "name": "杨小华",
+        "nickname": "小华",
         "feishu_id": "ou_xxx",
+        "openclaw_allowlist": True,
         "role": "技术负责人",
         "responsibilities": ["网关架构设计"],
         "goals": ["Q2 完成网关性能优化"],
         "modules": ["网关", "APISIX"],
+        "daily_report": True,
         "notes": "偏好先看数据再讨论方案",
+    }
+
+
+@pytest.fixture
+def sample_storage_yaml():
+    return {
+        "feishu_drive": {
+            "root_folder_token": "fldcnTestRootToken",
+            "dirs": {
+                "daily_report": "日报",
+                "meeting_minutes": "会议纪要",
+            },
+        },
     }

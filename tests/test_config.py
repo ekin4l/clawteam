@@ -10,6 +10,8 @@ from clawteam_glm.config import (
     load_assignments,
     load_team_members,
     load_tools,
+    load_storage,
+    resolve_output_storage,
     discover_agents,
 )
 
@@ -127,3 +129,36 @@ class TestLoadTools:
         result = load_tools(tmp_project / "tools")
         found = [t for t in result if t["name"] == "feishu_messaging"]
         assert len(found) == 1
+
+
+class TestLoadStorage:
+    def test_loads_storage(self, tmp_project, sample_storage_yaml):
+        storage_file = tmp_project / "storage.yaml"
+        storage_file.write_text(yaml.dump(sample_storage_yaml))
+        result = load_storage(storage_file)
+        assert "feishu_drive" in result
+        assert result["feishu_drive"]["root_folder_token"] == "fldcnTestRootToken"
+
+
+class TestResolveOutputStorage:
+    def test_resolves_work_item_output(self, sample_storage_yaml):
+        work_item = {
+            "name": "daily_report",
+            "output_config": {
+                "storage_ref": "feishu_drive",
+                "dir_key": "daily_report",
+                "daily_report_file": "{name}-{date}.md",
+                "per_person_dir": True,
+            },
+        }
+        result = resolve_output_storage(work_item, sample_storage_yaml)
+        assert result is not None
+        assert result["root_folder_token"] == "fldcnTestRootToken"
+        assert result["target_dir"] == "日报"
+        assert result["per_person_dir"] is True
+        assert "daily_report_file" in result["file_templates"]
+
+    def test_returns_none_when_no_output_config(self, sample_storage_yaml):
+        work_item = {"name": "architecture_design"}
+        result = resolve_output_storage(work_item, sample_storage_yaml)
+        assert result is None
