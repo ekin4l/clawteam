@@ -173,7 +173,7 @@ for wi_name in work_item_names:
             ['openclaw', 'cron', 'add',
              '--name', cron_name,
              '--cron', schedule,
-             '--prompt', prompt,
+             '--message', prompt,
              '--agent', '${ROLE_KEY}'],
             capture_output=True, text=True, timeout=15,
         )
