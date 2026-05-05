@@ -18,10 +18,11 @@ outputs:
   - 飞书网盘中的日报归档文件
 
 output_config:
-  base_dir: "日报"                            # 飞书网盘中的根目录名
-  daily_report_file: "{name}-{date}.md"       # 日报文件名模板
-  chat_record_file: "{name}-{date}-聊天记录.md" # 聊天记录文件名模板
-  per_person_dir: true                         # 按人名建子目录
+  storage_ref: "feishu_drive"                  # 引用 storage.yaml 中的配置
+  dir_key: "daily_report"                      # 对应 storage.yaml -> feishu_drive.dirs.daily_report
+  daily_report_file: "{name}-{date}.md"        # 日报文件名模板
+  chat_record_file: "{name}-{date}-聊天记录.md"  # 聊天记录文件名模板
+  per_person_dir: true                          # 按人名建子目录
 
 workflow:
   step_1_collect:
