@@ -17,22 +17,35 @@ check_and_fix_scopes() {
     fi
     STATE_DIR=$(python3 -c "import yaml; print(yaml.safe_load(open('$INSTANCE'))['openclaw']['state_dir'])")
     PAIRED_FILE="$STATE_DIR/devices/paired.json"
+    AUTH_FILE="$STATE_DIR/identity/device-auth.json"
     PENDING_FILE="$STATE_DIR/devices/pending.json"
 
     [ ! -f "$PAIRED_FILE" ] && return
 
-    # 检查是否已有 operator.write 权限
+    # 检查 paired.json 和 device-auth.json 是否都有 operator.write
     HAS_WRITE=$(python3 -c "
 import json
-data = json.load(open('$PAIRED_FILE'))
-for dev in data.values():
-    scopes = dev.get('scopes', [])
-    tok_scopes = []
-    for tok in dev.get('tokens', {}).values():
-        tok_scopes.extend(tok.get('scopes', []))
-    if 'operator.write' in scopes or 'operator.write' in tok_scopes:
-        print('yes')
-        break
+ok = True
+for path in ['$PAIRED_FILE', '$AUTH_FILE']:
+    try:
+        data = json.load(open(path))
+    except (FileNotFoundError, json.JSONDecodeError):
+        continue
+    if isinstance(data, dict):
+        # paired.json: {deviceId: {scopes: [...], tokens: {operator: {scopes: [...]}}}}
+        entries = data.values() if 'tokens' in str(data) else [data]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            top_scopes = entry.get('scopes', [])
+            tok_scopes = []
+            for tok in entry.get('tokens', {}).values():
+                if isinstance(tok, dict):
+                    tok_scopes.extend(tok.get('scopes', []))
+            if 'operator.write' not in top_scopes and 'operator.write' not in tok_scopes:
+                ok = False
+if ok:
+    print('yes')
 else:
     print('no')
 " 2>/dev/null || echo "no")
@@ -41,38 +54,72 @@ else:
         return
     fi
 
-    echo "⚠ 检测到设备缺少 operator.write 权限（cron 任务需要），正在修复..."
+    echo "⚠ 检测到设备缺少 operator.write 权限（cron 任务需要），正在离线修复..."
 
-    # 停止 gateway 避免冲突
+    # 停止 gateway
     openclaw gateway stop 2>/dev/null || true
-    sleep 1
+    sleep 3
 
-    # 升级设备权限
+    # 确认 gateway 已停止
+    if pgrep -f 'openclaw.*gateway' &>/dev/null; then
+        echo "等待 gateway 完全停止..."
+        sleep 5
+    fi
+
+    # 同时修复 paired.json + identity/device-auth.json（顶层 scopes + tokens 内部 scopes）
     python3 -c "
-import json
+import json, shutil, time
 from pathlib import Path
 
-paired = Path('$PAIRED_FILE')
-data = json.loads(paired.read_text())
-new_scopes = ['operator.admin', 'operator.pairing', 'operator.read', 'operator.write']
-for dev_id, dev in data.items():
-    if 'tokens' in dev:
-        for tok_id, tok in dev['tokens'].items():
-            tok['scopes'] = new_scopes
-        dev['scopes'] = new_scopes
-paired.write_text(json.dumps(data, indent=2))
+WANTED = ['operator.read', 'operator.write', 'operator.admin', 'operator.approvals', 'operator.pairing']
+
+def merge_scopes(scopes):
+    if not isinstance(scopes, list):
+        scopes = []
+    for s in WANTED:
+        if s not in scopes:
+            scopes.append(s)
+    return scopes
+
+def patch_entry(obj):
+    if not isinstance(obj, dict):
+        return
+    obj['scopes'] = merge_scopes(obj.get('scopes'))
+    tokens = obj.get('tokens', {})
+    if isinstance(tokens, dict):
+        op = tokens.get('operator', {})
+        if isinstance(op, dict):
+            op['scopes'] = merge_scopes(op.get('scopes'))
+
+for path_str in ['$PAIRED_FILE', '$AUTH_FILE']:
+    path = Path(path_str)
+    if not path.exists():
+        print(f'  SKIP: {path} 不存在')
+        continue
+    backup = str(path) + f'.bak.{int(time.time())}'
+    shutil.copy2(str(path), backup)
+    data = json.loads(path.read_text())
+    if isinstance(data, dict):
+        if 'tokens' in data:
+            patch_entry(data)
+        for v in data.values():
+            if isinstance(v, dict):
+                patch_entry(v)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    print(f'  PATCHED: {path}')
 
 # 清空 pending 请求
 pending = Path('$PENDING_FILE')
 if pending.exists():
     pending.write_text('{}')
+    print('  CLEARED: pending requests')
 "
 
-    echo "设备权限已升级 ✓"
+    echo "设备权限已离线升级 ✓"
 
     # 重启 gateway
     openclaw gateway start 2>/dev/null || true
-    sleep 2
+    sleep 3
 }
 check_and_fix_scopes
 
