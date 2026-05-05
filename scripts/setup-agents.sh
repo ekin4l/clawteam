@@ -37,6 +37,29 @@ data = yaml.safe_load(open('$INSTANCE'))
 print(data['openclaw']['agents_dir'])
 ")
 
+# ── 备份现有 workspace（用于 rollback-agents.sh 回滚）──
+BACKUP_DIR="$PROJECT_DIR/.backups/setup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+for RK in $AGENTS; do
+    WS="$AGENTS_DIR/$RK/workspace"
+    [ ! -d "$WS" ] && WS="$AGENTS_DIR/$RK"
+    if [ -d "$WS" ]; then
+        echo "备份 $RK → $BACKUP_DIR/$RK/"
+        mkdir -p "$BACKUP_DIR/$RK"
+        cp -r "$WS" "$BACKUP_DIR/$RK/workspace"
+    fi
+done
+if [ "$1" = "--all" ]; then
+    WS_ROOT=$(python3 -c "import yaml; print(yaml.safe_load(open('$INSTANCE'))['openclaw']['workspace_root'])")
+    if [ -d "$WS_ROOT" ]; then
+        mkdir -p "$BACKUP_DIR/main"
+        for f in SOUL.md AGENTS.md IDENTITY.md HEARTBEAT.md TOOLS.md TEAM.md; do
+            [ -f "$WS_ROOT/$f" ] && cp "$WS_ROOT/$f" "$BACKUP_DIR/main/" 2>/dev/null || true
+        done
+    fi
+fi
+echo "备份已保存: $BACKUP_DIR"
+
 for ROLE_KEY in $AGENTS; do
     echo "--- Setting up agent: $ROLE_KEY ---"
 
