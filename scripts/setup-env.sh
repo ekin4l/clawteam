@@ -174,9 +174,15 @@ fi
 # ──────────────────────────────
 VENV_DIR="$PROJECT_DIR/.venv"
 
-if [ -d "$VENV_DIR" ]; then
+# 检查 venv 是否真正可用（不只是目录存在）
+if [ -f "$VENV_DIR/bin/activate" ]; then
     echo "虚拟环境已存在: $VENV_DIR"
 else
+    # 目录存在但 venv 不完整，先清理
+    if [ -d "$VENV_DIR" ]; then
+        echo "清理损坏的虚拟环境..."
+        rm -rf "$VENV_DIR"
+    fi
     echo "创建虚拟环境..."
     $PYTHON -m venv "$VENV_DIR"
     echo "虚拟环境创建完成 ✓"
