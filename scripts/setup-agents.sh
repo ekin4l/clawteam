@@ -287,73 +287,9 @@ else:
         echo "Agent $ROLE_KEY configured."
     fi
 
-    # --- Setup scheduled cron tasks for this agent ---
-    echo "Setting up scheduled tasks for $ROLE_KEY..."
-    python3 -c "
-import yaml, glob, subprocess, sys
-
-# Find agent file
-files = glob.glob('agents/${ROLE_KEY}_*.yaml')
-if not files:
-    sys.exit(0)
-agent = yaml.safe_load(open(files[0]))
-
-# Load assignments
-asgn = yaml.safe_load(open('assignments.yaml'))
-work_item_names = asgn.get('defaults', {}).get('${ROLE_KEY}', [])
-
-# Get existing cron jobs to avoid duplicates
-existing_cron_names = set()
-try:
-    cron_list = subprocess.run(
-        ['openclaw', 'cron', 'list'], capture_output=True, text=True, timeout=10,
-    )
-    if cron_list.returncode == 0:
-        for line in cron_list.stdout.splitlines():
-            if 'clawteam-' in line:
-                # extract cron name from the line
-                existing_cron_names.add(line.strip())
-except (FileNotFoundError, subprocess.TimeoutExpired):
-    pass
-
-# For each assigned work item, check for scheduled triggers
-for wi_name in work_item_names:
-    wi_path = f'work_items/{wi_name}.yaml'
-    try:
-        wi = yaml.safe_load(open(wi_path))
-    except FileNotFoundError:
-        continue
-
-    schedule = wi.get('triggers', {}).get('scheduled')
-    if not schedule:
-        continue
-
-    display_name = wi.get('display_name', wi_name)
-    manual_trigger = wi.get('triggers', {}).get('manual', '')
-    prompt = f'执行定时任务：{display_name}。触发命令：{manual_trigger or wi_name}'
-    cron_name = f'clawteam-${ROLE_KEY}-{wi_name}'
-
-    # Skip if already exists
-    if any(cron_name in c for c in existing_cron_names):
-        print(f'  Cron already exists: {display_name}, skipping')
-        continue
-
-    try:
-        result = subprocess.run(
-            ['openclaw', 'cron', 'add',
-             '--name', cron_name,
-             '--cron', schedule,
-             '--message', prompt,
-             '--agent', '${ROLE_KEY}'],
-            capture_output=True, text=True, timeout=15,
-        )
-        if result.returncode == 0:
-            print(f'  Created cron: {display_name} ({schedule}) for ${ROLE_KEY}')
-        else:
-            print(f'  Warning: could not create cron for {display_name}: {result.stderr.strip()}')
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        print(f'  Warning: openclaw cron not available, skipping {display_name}')
-" 2>/dev/null || echo "  Warning: scheduled task setup failed for $ROLE_KEY"
+    # --- 同步定时任务（委托给 manage-workitems.sh）---
+    echo "Syncing scheduled tasks for $ROLE_KEY..."
+    bash "$SCRIPT_DIR/manage-workitems.sh" sync-cron --agent "$ROLE_KEY"
 
     # --- 绑定消息通道（仅对外沟通的 agent）---
     COMMUNICATES=$(python3 -c "
